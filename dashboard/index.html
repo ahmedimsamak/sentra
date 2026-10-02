@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SENTRA — Smart Safety & Emergency Monitoring</title>
+  <meta name="description" content="SENTRA prototype: smart safety and emergency monitoring for schools and factories (simulated data).">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <script>
+    /* Apply theme before first paint to avoid a flash. */
+    (function () {
+      var theme;
+      try { theme = JSON.parse(localStorage.getItem('sentra.theme')); } catch (e) { theme = null; }
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ============================== LOGIN ============================== -->
+  <div id="login-screen" class="login" hidden>
+    <div class="login-brand">
+      <div class="login-brand-inner">
+        <div class="brand brand--lg">
+          <img src="assets/logo.svg" alt="" class="brand-logo">
+          <div><div class="brand-name">SENTRA</div><div class="brand-tag">Smart Safety &amp; Emergency Monitoring</div></div>
+        </div>
+        <h2 class="login-headline">Detect earlier.<br>Respond faster.<br>Evacuate safer.</h2>
+        <ul class="login-points">
+          <li><span class="dot dot--danger"></span>Multi-sensor fire, heat, vibration and SOS detection</li>
+          <li><span class="dot dot--warn"></span>AI-assisted classification and evacuation routing</li>
+          <li><span class="dot dot--ok"></span>Built for schools and industrial facilities</li>
+        </ul>
+        <p class="login-foot">Prototype build · Simulated sensor data · Not connected to emergency services</p>
+      </div>
+    </div>
+    <div class="login-panel">
+      <button class="icon-btn theme-toggle login-theme" data-action="toggle-theme" aria-label="Toggle theme"><span class="theme-icon">🌙</span></button>
+      <form id="login-form" class="login-form" novalidate>
+        <img src="assets/logo.svg" alt="SENTRA" class="login-mobile-logo">
+        <h1>Sign in</h1>
+        <p class="muted">Access the SENTRA monitoring console.</p>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="login-email" autocomplete="username" placeholder="name@facility.org" required>
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="login-password" autocomplete="current-password" placeholder="••••••••" required>
+        </label>
+        <div class="login-error" id="login-error" role="alert" hidden></div>
+        <button type="submit" class="btn btn--primary btn--block">Sign in</button>
+        <div class="demo-creds">
+          <div><strong>Demo credentials</strong></div>
+          <div class="mono">admin@sentra.demo</div>
+          <div class="mono">Sentra@2026</div>
+          <button type="button" class="btn btn--ghost btn--sm" id="fill-demo">Use demo credentials</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================== APP SHELL ============================== -->
+  <div id="app" class="app" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <img src="assets/logo.svg" alt="" class="brand-logo">
+        <div><div class="brand-name">SENTRA</div><div class="brand-tag">Safety Monitoring</div></div>
+      </div>
+      <nav class="nav" id="nav" aria-label="Main navigation"></nav>
+      <div class="sidebar-foot">
+        <div class="facility-card" id="facility-card"></div>
+        <div class="proto-note">Prototype · Simulated data</div>
+      </div>
+    </aside>
+    <div class="sidebar-scrim" id="sidebar-scrim"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn only-mobile" data-action="open-sidebar" aria-label="Open menu" id="menu-btn"></button>
+        <div class="topbar-title">
+          <div class="page-title" id="page-title">Dashboard</div>
+          <div class="page-sub" id="page-sub"></div>
+        </div>
+        <div class="topbar-actions">
+          <div class="segmented" id="mode-switch" role="tablist" aria-label="Facility mode"></div>
+          <div class="risk-pill" id="risk-pill"></div>
+          <div class="hw-indicators" id="hw-indicators"></div>
+          <div class="notif-wrap">
+            <button class="icon-btn" id="notif-btn" aria-label="Notifications"></button>
+            <div class="dropdown" id="notif-dropdown" hidden></div>
+          </div>
+          <button class="icon-btn theme-toggle" data-action="toggle-theme" aria-label="Toggle theme"><span class="theme-icon">🌙</span></button>
+          <div class="user-chip" id="user-chip"></div>
+        </div>
+      </header>
+
+      <div id="emergency-banner" class="banner" hidden></div>
+
+      <main class="content" id="content">
+
+        <!-- DASHBOARD -->
+        <section class="view" data-view="dashboard" hidden>
+          <div class="kpis" id="dash-kpis"></div>
+          <div id="dash-evac"></div>
+          <div class="grid">
+            <div class="card span-8">
+              <div class="card-head">
+                <div><h3>Live Sensor Readings</h3><p class="card-sub">Updated every few seconds · simulated ESP32 nodes</p></div>
+                <select class="select" id="dash-zone-select" aria-label="Zone"></select>
+              </div>
+              <div class="sensor-grid" id="dash-sensors"></div>
+            </div>
+            <div class="card span-4">
+              <div class="card-head"><div><h3>Zone Status</h3><p class="card-sub" id="dash-zone-sub"></p></div><a class="link" href="#/monitoring">Open map</a></div>
+              <div class="zone-list" id="dash-zones"></div>
+            </div>
+            <div class="card span-5">
+              <div class="card-head"><div><h3>Temperature Trend</h3><p class="card-sub">Facility average &amp; hottest equipment</p></div><div class="legend" id="leg-dash-temp"></div></div>
+              <div class="chart-box"><canvas id="chart-dash-temp" data-height="210"></canvas></div>
+            </div>
+            <div class="card span-4">
+              <div class="card-head"><div><h3>Smoke Level</h3><p class="card-sub">Highest MQ-2 reading</p></div></div>
+              <div class="chart-box"><canvas id="chart-dash-smoke" data-height="210"></canvas></div>
+            </div>
+            <div class="card span-3">
+              <div class="card-head"><div><h3>Alarm &amp; Security</h3><p class="card-sub">Prototype indicators</p></div></div>
+              <div id="dash-hw"></div>
+            </div>
+            <div class="card span-8">
+              <div class="card-head"><div><h3>Recent Incidents</h3><p class="card-sub">Latest events in this facility</p></div><a class="link" href="#/incidents">View all</a></div>
+              <div id="dash-incidents"></div>
+            </div>
+            <div class="card span-4">
+              <div class="card-head"><div><h3>Notifications</h3><p class="card-sub" id="dash-notif-sub"></p></div><button class="link" data-action="mark-read">Mark all read</button></div>
+              <div class="feed" id="dash-notifs"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- LIVE MONITORING -->
+        <section class="view" data-view="monitoring" hidden>
+          <div class="grid">
+            <div class="card span-8">
+              <div class="card-head">
+                <div><h3 id="map-title">Facility Map</h3><p class="card-sub">Click a zone for sensor and device details</p></div>
+                <div class="legend">
+                  <span><i class="lg lg--normal"></i>Normal</span><span><i class="lg lg--warning"></i>Warning</span><span><i class="lg lg--danger"></i>Dangerous</span><span><i class="lg lg--route"></i>Route</span>
+                </div>
+              </div>
+              <div class="map-wrap" id="map-main"></div>
+            </div>
+            <div class="card span-4" id="zone-detail"></div>
+            <div class="card span-12">
+              <div class="card-head"><div><h3>ESP32-CAM Prototype Feeds</h3><p class="card-sub">Simulated visual analysis — no real camera stream</p></div><span class="tag tag--proto">SIMULATED</span></div>
+              <div class="cam-wall" id="cam-wall"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- INCIDENTS -->
+        <section class="view" data-view="incidents" hidden>
+          <div class="stat-strip" id="inc-stats"></div>
+          <div class="card">
+            <div class="toolbar">
+              <div class="segmented segmented--sm" id="inc-filter">
+                <button data-filter="all">All</button><button data-filter="active">Active</button><button data-filter="resolved">Resolved</button>
+              </div>
+              <select class="select" id="inc-severity" aria-label="Severity">
+                <option value="all">All severities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option>
+              </select>
+              <label class="search"><span id="inc-search-icon"></span><input type="search" id="inc-search" placeholder="Search ID, type or location"></label>
+              <div class="spacer"></div>
+              <div class="segmented segmented--sm" id="inc-view">
+                <button data-view-mode="table" aria-label="Table view">Table</button><button data-view-mode="cards" aria-label="Card view">Cards</button>
+              </div>
+            </div>
+            <div id="inc-list"></div>
+          </div>
+        </section>
+
+        <!-- DEVICES -->
+        <section class="view" data-view="devices" hidden>
+          <div class="stat-strip" id="dev-stats"></div>
+          <div class="card">
+            <div class="toolbar">
+              <select class="select" id="dev-type" aria-label="Device type"></select>
+              <label class="search"><span id="dev-search-icon"></span><input type="search" id="dev-search" placeholder="Search device ID or location"></label>
+              <div class="spacer"></div>
+              <span class="muted small">Heartbeat simulated · real devices would report via MQTT/WebSocket</span>
+            </div>
+            <div class="table-wrap" id="dev-table"></div>
+          </div>
+        </section>
+
+        <!-- ANALYTICS -->
+        <section class="view" data-view="analytics" hidden>
+          <div class="toolbar toolbar--bare">
+            <div class="segmented segmented--sm" id="an-range">
+              <button data-range="live">Live stream</button><button data-range="24h">Last 24 hours</button>
+            </div>
+            <div class="spacer"></div>
+            <span class="tag tag--proto">SIMULATED DATA</span>
+          </div>
+          <div class="grid">
+            <div class="card span-6"><div class="card-head"><div><h3>Temperature</h3><p class="card-sub">DS18B20 · facility average &amp; max</p></div><div class="legend" id="leg-an-temp"></div></div><div class="chart-box"><canvas id="chart-an-temp" data-height="220"></canvas></div></div>
+            <div class="card span-6"><div class="card-head"><div><h3>Smoke Concentration</h3><p class="card-sub">MQ-2 · highest zone reading</p></div></div><div class="chart-box"><canvas id="chart-an-smoke" data-height="220"></canvas></div></div>
+            <div class="card span-6"><div class="card-head"><div><h3>Equipment Heat</h3><p class="card-sub">MLX90614 · hottest surface</p></div></div><div class="chart-box"><canvas id="chart-an-equip" data-height="220"></canvas></div></div>
+            <div class="card span-6"><div class="card-head"><div><h3>Vibration</h3><p class="card-sub">MPU6050 · peak RMS</p></div></div><div class="chart-box"><canvas id="chart-an-vib" data-height="220"></canvas></div></div>
+            <div class="card span-8"><div class="card-head"><div><h3>Incidents — Last 7 Days</h3><p class="card-sub">By category (today includes live demo events)</p></div><div class="legend" id="leg-an-inc"></div></div><div class="chart-box"><canvas id="chart-an-inc" data-height="230"></canvas></div></div>
+            <div class="card span-4"><div class="card-head"><div><h3>Summary</h3><p class="card-sub" id="an-summary-sub"></p></div></div><div id="an-summary"></div></div>
+          </div>
+        </section>
+
+        <!-- AI INSIGHTS -->
+        <section class="view" data-view="ai" hidden>
+          <div class="notice notice--proto">
+            <span id="ai-notice-icon"></span>
+            <div><strong>SIMULATED / PROTOTYPE AI.</strong> Results come from a transparent rule-based sensor-fusion scorer that imitates a classifier. It is not a trained or scientifically validated model and must not be used for real safety decisions.</div>
+          </div>
+          <div class="grid">
+            <div class="card span-4" id="ai-class"></div>
+            <div class="card span-4"><div class="card-head"><div><h3>Supporting Signals</h3><p class="card-sub" id="ai-signal-sub"></p></div></div><div id="ai-signals"></div></div>
+            <div class="card span-4"><div class="card-head"><div><h3>Class Probabilities</h3><p class="card-sub">Normalised fusion scores</p></div></div><div id="ai-probs"></div><div class="ai-reason" id="ai-reason"></div></div>
+            <div class="card span-12">
+              <div class="card-head"><div><h3>Predictive Evacuation Routing &amp; Risk Analysis</h3><p class="card-sub">Risk-weighted shortest path over the facility walking graph</p></div><span class="tag tag--proto">SIMULATED / PROTOTYPE</span></div>
+              <div id="ai-flow"></div>
+              <div class="grid grid--inner">
+                <div class="span-7"><div class="map-wrap map-wrap--compact" id="map-ai"></div></div>
+                <div class="span-5" id="ai-routes"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section class="view" data-view="settings" hidden>
+          <div class="grid">
+            <div class="card span-6">
+              <div class="card-head"><div><h3>Facility &amp; Display</h3><p class="card-sub">Stored in this browser</p></div></div>
+              <div class="setting-row"><div><strong>Facility mode</strong><p class="muted small">Switches zones, devices and data profile</p></div><div class="segmented segmented--sm" id="set-mode"></div></div>
+              <div class="setting-row"><div><strong>Theme</strong><p class="muted small">Light or dark interface</p></div><div class="segmented segmented--sm" id="set-theme"><button data-theme-set="light">☀️ Light</button><button data-theme-set="dark">🌙 Dark</button></div></div>
+              <div class="setting-row"><div><strong>Audible buzzer simulation</strong><p class="muted small">Play a beep in the browser during HIGH/CRITICAL alarms</p></div><label class="switch"><input type="checkbox" id="set-sound"><span></span></label></div>
+            </div>
+            <div class="card span-6">
+              <div class="card-head"><div><h3>Simulation</h3><p class="card-sub">Mock data layer controls</p></div></div>
+              <div class="setting-row"><div><strong>Update interval</strong><p class="muted small">How often simulated readings arrive</p></div>
+                <select class="select" id="set-interval"><option value="1000">1 second</option><option value="2000">2 seconds</option><option value="5000">5 seconds</option></select></div>
+              <div class="setting-row"><div><strong>Data stream</strong><p class="muted small">Pause to freeze readings for screenshots</p></div><button class="btn btn--ghost btn--sm" id="set-pause"></button></div>
+              <div class="setting-row"><div><strong>Data source</strong><p class="muted small">Future integrations are planned, not active</p></div>
+                <select class="select" id="set-source"><option>Simulated (mock)</option><option disabled>REST API — planned</option><option disabled>WebSocket — planned</option><option disabled>MQTT broker — planned</option></select></div>
+            </div>
+            <div class="card span-6">
+              <div class="card-head"><div><h3>Alert Thresholds</h3><p class="card-sub">Applied instantly to status, risk and AI scoring</p></div></div>
+              <form id="threshold-form" class="threshold-form"></form>
+            </div>
+            <div class="card span-6">
+              <div class="card-head"><div><h3>Security Status</h3><p class="card-sub">Prototype indicators only — not production-grade security</p></div><span class="tag tag--proto">PROTOTYPE</span></div>
+              <div id="set-security"></div>
+              <div class="card-head card-head--spaced"><div><h3>Notification Channels</h3><p class="card-sub">External channels are simulated</p></div></div>
+              <div id="set-notify"></div>
+            </div>
+            <div class="card span-12">
+              <div class="setting-row setting-row--flat">
+                <div class="user-block" id="set-account"></div>
+                <div class="row-gap">
+                  <button class="btn btn--ghost" data-action="restart-demo">Restart demo data</button>
+                  <button class="btn btn--primary" data-action="logout">Sign out</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- DEMO MODE PANEL -->
+    <aside class="demo-panel" id="demo-panel" aria-label="Demo mode controls">
+      <button class="demo-head" id="demo-toggle" aria-expanded="true">
+        <span class="demo-badge">DEMO MODE</span>
+        <span class="demo-state" id="demo-state">Normal</span>
+        <span class="demo-chev" id="demo-chev"></span>
+      </button>
+      <div class="demo-body" id="demo-body"></div>
+    </aside>
+  </div>
+
+  <div id="modal-root" class="modal-root" hidden></div>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+  <div id="chart-tip" class="chart-tip" hidden></div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/simulation.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

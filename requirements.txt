@@ -1,0 +1,25 @@
+# ---- Web / API ----
+Flask==3.0.3
+Flask-Cors==4.0.1
+Werkzeug==3.0.3
+Jinja2==3.1.4
+itsdangerous==2.2.0
+click==8.1.7
+blinker==1.8.2
+MarkupSafe==2.1.5
+
+# ---- ML / Data ----
+scikit-learn>=1.7.2
+numpy==2.3.2
+pandas==2.3.3
+joblib==1.4.2
+scipy>=1.16.1
+
+# ---- Training visualizations ----
+matplotlib>=3.10.4
+seaborn==0.13.2
+
+# ---- Optional: production server ----
+#waitress==3.0.0        ; sys_platform == "win32"
+#gunicorn==22.0.0       ; sys_platform != "win32"
+

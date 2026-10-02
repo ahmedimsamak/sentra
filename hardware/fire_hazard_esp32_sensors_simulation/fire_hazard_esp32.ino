@@ -32,6 +32,15 @@
 #include <ArduinoJson.h>
 #include <DHT.h>
 
+// For Simulating Sensors values
+#ifndef USE_SENSOR_SIM
+#define USE_SENSOR_SIM 1     // set to 0 to use physical sensors
+
+#if USE_SENSOR_SIM
+#include "sensor_sim.h"
+#endif
+#endif
+
 // ============================================================
 //  PIN DEFINITIONS
 // ============================================================
@@ -45,9 +54,9 @@
 // ============================================================
 //  WIFI & BACKEND CONFIG
 // ============================================================
-const char* WIFI_SSID     = "R2NET 2.4G";
-const char* WIFI_PASSWORD = "soldier2006";
-const char* BACKEND_URL   = "http://192.168.1.34:5000/api/predict";
+const char* WIFI_SSID     = "TAG";
+const char* WIFI_PASSWORD = "12345678";
+const char* BACKEND_URL   = "http://192.168.1.85:5000/api/predict";
 
 // ============================================================
 //  THRESHOLDS (used as fallback if no server response)
@@ -338,6 +347,11 @@ void setup() {
 
   Serial.println("\n[SYSTEM] Entering Warm-up & Calibration (60 seconds)...");
   warmupStart = millis();
+
+  // Initialize Sensors Simulation
+#if USE_SENSOR_SIM
+  simInit();
+#endif
 }
 
 // ============================================================
@@ -348,6 +362,7 @@ void loop() {
 
   // --- Warm-up Phase Logic ---
   if (isWarmingUp) {
+  #if !USE_SENSOR_SIM
     if (now - warmupStart < 60000) {
       digitalWrite(LED_GREEN, (now / 500) % 2); // Blink green
       if (now % 2000 < 50) Serial.println("[SYSTEM] Warming up sensors... Please wait.");
@@ -361,14 +376,26 @@ void loop() {
       Serial.printf("[SYSTEM] Warm-up complete. Baseline set to: %d\n", gasBaseline);
       digitalWrite(LED_GREEN, HIGH);
     }
+  #endif
   }
 
   // --- Read sensors every READ_INTERVAL ---
   if (now - lastReadTime >= READ_INTERVAL) {
     lastReadTime = now;
 
+#if USE_SENSOR_SIM
+    // Use the senors simulations
+    float tmpTemperature, tmpHumidity, tmpGasLevel;
+    // Sensors Simulation
+    simUpdate();
+    simReadSensors(tmpTemperature, tmpHumidity, tmpGasLevel);
+    temperature = tmpTemperature;
+    humidity = tmpHumidity;
+    gasLevel = tmpGasLevel;
+#else
     bool ok = readSensors();
     if (!ok) return; // Skip if sensor read failed
+#endif
 
     // Run edge ML inference
     Prediction pred = runEdgeMLModel(temperature, humidity, gasLevel);
